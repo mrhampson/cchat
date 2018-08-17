@@ -41,10 +41,6 @@ int main(int argc, char* argv[]) {
   
   pthread_t sendToAllThread;
   pthread_create(&sendToAllThread, NULL, dispatchMessageToAllSocks, (void*)allClientDescriptors);
-  
-  // TODO TESTING
-  send(sendToAllPipeFds[1], "TEST MESSAGE TO SENDER THREAD", strlen("TEST MESSAGE TO SENDER THREAD"), 0);
-  
 
   listen(serverDescriptor, QLEN);
   printf("Listening ...\n");
