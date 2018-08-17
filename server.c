@@ -8,15 +8,16 @@
 
 #define PORT 4897
 #define QLEN 100
-#define BLEN 256
-
+#define BLEN 512
+#define MAX_SOCKS 512
 
 void* handleClient(void* args);
 
 int main(int argc, char* argv[]) {
+  int allClientDescriptors[MAX_SOCKS] = {0};
   struct sockaddr_in serverAddrInfo, clientAddrInfo;
   int serverDescriptor, clientDescriptor;
-  
+
   serverDescriptor = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
   
   memset((char*)&serverAddrInfo, 0, sizeof(struct sockaddr_in));
