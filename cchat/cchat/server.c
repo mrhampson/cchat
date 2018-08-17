@@ -71,8 +71,7 @@ void* handleClient(void* args) {
   while(1) {
     if (recv(clientDescriptor, buf, BLEN, 0) > 0) {
       printf("Recevied: %s\n", buf);
-      send(sendToAllPipeFds[1], buf, strlen(buf), 0);
-      send(clientDescriptor, buf, strlen(buf), 0);
+      write(sendToAllPipeFds[1], buf, strlen(buf));
       memset(buf, 0, BLEN);
     }
   }
@@ -90,6 +89,7 @@ void* dispatchMessageToAllSocks(void* args) {
         int i = 0;
         while(i < MAX_SOCKS && allSockDesciptors[i] != -1) {
           send(allSockDesciptors[i], buf, strlen(buf), 0);
+          i++;
         }
         memset(buf, 0, BLEN);
       }
