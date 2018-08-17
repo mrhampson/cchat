@@ -35,12 +35,17 @@ int main(int argc, char* argv[]) {
   bind(serverDescriptor, (struct sockaddr *)&serverAddrInfo, sizeof(struct sockaddr_in));
 
   // Create send to all thread
-  pthread_t sendToAllThread;
-  pthread_create(&sendToAllThread, NULL, dispatchMessageToAllSocks, (void*)allClientDescriptors);
   pipe(sendToAllPipeFds);
   fdToPoll.fd = sendToAllPipeFds[0];
   fdToPoll.events = POLLIN;
-    
+  
+  pthread_t sendToAllThread;
+  pthread_create(&sendToAllThread, NULL, dispatchMessageToAllSocks, (void*)allClientDescriptors);
+  
+  // TODO TESTING
+  send(sendToAllPipeFds[1], "TEST MESSAGE TO SENDER THREAD", strlen("TEST MESSAGE TO SENDER THREAD"), 0);
+  
+
   listen(serverDescriptor, QLEN);
   printf("Listening ...\n");
   while (1) {
@@ -64,27 +69,30 @@ void* handleClient(void* args) {
   printf("Listening to client on descriptor %i\n", clientDescriptor);
   char buf[BLEN] = {0}; 
   while(1) {
-    if (recv(clientDescriptor, buf, BLEN, 0)) {
+    if (recv(clientDescriptor, buf, BLEN, 0) > 0) {
+      printf("Recevied: %s\n", buf);
       send(sendToAllPipeFds[1], buf, strlen(buf), 0);
-      //send(clientDescriptor, buf, strlen(buf), 0);
+      send(clientDescriptor, buf, strlen(buf), 0);
       memset(buf, 0, BLEN);
     }
   }
 }
 
 void* dispatchMessageToAllSocks(void* args) {
-  printf("Started dispatching thread for all sockets");
+  printf("Started dispatching thread for all sockets\n");
   int* allSockDesciptors = (int*)args;
   char buf[BLEN] = {0};
   while(1) {
     poll(&fdToPoll, 1, POLL_TIMEOUT);
-    size_t numBytesRead = read(fdToPoll.fd, buf, BLEN);
-    if (numBytesRead) {
-      int i = 0;
-      while(i < MAX_SOCKS && allSockDesciptors[i] != -1) {
-        send(allSockDesciptors[i], buf, strlen(buf), 0);
+    if (fdToPoll.revents && POLLIN) {
+      size_t numBytesRead = read(fdToPoll.fd, buf, BLEN);
+      if (numBytesRead) {
+        int i = 0;
+        while(i < MAX_SOCKS && allSockDesciptors[i] != -1) {
+          send(allSockDesciptors[i], buf, strlen(buf), 0);
+        }
+        memset(buf, 0, BLEN);
       }
-      memset(buf, 0, BLEN);
     }
   }
 }
