@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <pthread/pthread.h>
+#include <pthread.h>
 #include <poll.h>
 
 #define PORT 4000
