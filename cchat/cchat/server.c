@@ -59,11 +59,8 @@ int main(int argc, char* argv[]) {
   printf("Listening ...\n");
   while (1) {
     int len = sizeof(struct sockaddr_in);
-    clientDescriptor = accept(
-      serverDescriptor,
-      (struct sockaddr*)&clientAddrInfo,
-      (socklen_t *)&len);
-    if (clientDescriptor) {
+    clientDescriptor = accept(serverDescriptor, (struct sockaddr*)&clientAddrInfo, (socklen_t *)&len);
+    if (clientDescriptor > 0) {
       allClientDescriptors[allClientDescriptorsIdx] = clientDescriptor;
       allClientDescriptorsIdx++;
       clientInfo.descriptor = clientDescriptor;
@@ -73,6 +70,9 @@ int main(int argc, char* argv[]) {
       // TODO how to join these threads
       pthread_t clientThread;
       pthread_create(&clientThread, NULL, handleClient, (void*)&clientInfo);
+    }
+    else {
+      printf("Call to accept failed ...");
     }
   }
   return 0;
@@ -94,6 +94,9 @@ void* handleClient(void* args) {
       write(sendToAllPipeFds[1], formattedResponse, strlen(formattedResponse));
       memset(buf, 0, BLEN);
     }
+    else {
+      printf("Call to receive failed");
+    }
   }
 }
 
@@ -105,7 +108,7 @@ void* dispatchMessageToAllSocks(void* args) {
     poll(&fdToPoll, 1, POLL_TIMEOUT);
     if (fdToPoll.revents && POLLIN) {
       size_t numBytesRead = read(fdToPoll.fd, buf, BLEN);
-      if (numBytesRead) {
+      if (numBytesRead > 0) {
         int i = 0;
         while(i < MAX_SOCKS && allSockDesciptors[i] != -1) {
           send(allSockDesciptors[i], buf, strlen(buf), 0);
