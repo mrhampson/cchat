@@ -25,6 +25,7 @@ struct client_thread_info {
 void* handleClient(void* args);
 void* dispatchMessageToAllSocks(void* args);
 bool startsWith(const char *pre, const char *str);
+void removeLastChar(char* str);
 
 // Shared across threads
 int sendToAllPipeFds[2];
@@ -83,13 +84,13 @@ void* handleClient(void* args) {
   char buf[BLEN] = {0}; 
   while(1) {
     if (recv(clientThreadInfo.descriptor, buf, BLEN, 0) > 0) {
+      removeLastChar(buf); //removes the new line
       printf("Recevied from (%s): %s\n", clientThreadInfo.name, buf);
-      if (startsWith("NICK", buf)) {
-        strncpy(clientThreadInfo.name, (buf + 4 * sizeof(char)), USER_NAME_MAX);
+      if (startsWith("NICK ", buf)) {
+        strncpy(clientThreadInfo.name, (buf + 5 * sizeof(char)), USER_NAME_MAX);
       }
-      
       char formattedResponse[BLEN];
-      snprintf(formattedResponse, BLEN, "%s: %s", clientThreadInfo.name, buf);
+      snprintf(formattedResponse, BLEN, "%s: %s\n", clientThreadInfo.name, buf);
       write(sendToAllPipeFds[1], formattedResponse, strlen(formattedResponse));
       memset(buf, 0, BLEN);
     }
@@ -121,4 +122,9 @@ bool startsWith(const char *pre, const char *str) {
   size_t lenpre = strlen(pre),
   lenstr = strlen(str);
   return lenstr < lenpre ? false : strncmp(pre, str, lenpre) == 0;
+}
+
+void removeLastChar(char* str) {
+  unsigned long len = strlen(str);
+  str[len-1] = 0;
 }
