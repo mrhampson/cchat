@@ -7,20 +7,24 @@
 #include <netdb.h>
 #include <pthread.h>
 #include <poll.h>
+#include <stdbool.h>
 
 #define PORT 4000
 #define QLEN 100
 #define BLEN 1024
 #define MAX_SOCKS 512
 #define POLL_TIMEOUT -1
+#define USER_NAME_MAX 128
 
 struct client_thread_info {
   int descriptor;
   struct sockaddr_in clientAddrInfo;
+  char name[USER_NAME_MAX];
 };
 
 void* handleClient(void* args);
 void* dispatchMessageToAllSocks(void* args);
+bool startsWith(const char *pre, const char *str);
 
 // Shared across threads
 int sendToAllPipeFds[2];
@@ -63,6 +67,7 @@ int main(int argc, char* argv[]) {
       allClientDescriptorsIdx++;
       clientInfo.descriptor = clientDescriptor;
       clientInfo.clientAddrInfo = clientAddrInfo;
+      inet_ntop(AF_INET, &(clientInfo.clientAddrInfo.sin_addr), clientInfo.name, INET_ADDRSTRLEN);
       printf("Got new connection\n");
       // TODO how to join these threads
       pthread_t clientThread;
@@ -74,16 +79,17 @@ int main(int argc, char* argv[]) {
 
 void* handleClient(void* args) {
   struct client_thread_info clientThreadInfo = *((struct client_thread_info *)args);
-  char clientAddrString[INET_ADDRSTRLEN];
-  inet_ntop(AF_INET, &(clientThreadInfo.clientAddrInfo.sin_addr), clientAddrString, INET_ADDRSTRLEN);
-  
-  printf("Listening to client %s on descriptor %i\n", clientAddrString, clientThreadInfo.descriptor);
+  printf("Listening to client %s on descriptor %i\n", clientThreadInfo.name, clientThreadInfo.descriptor);
   char buf[BLEN] = {0}; 
   while(1) {
     if (recv(clientThreadInfo.descriptor, buf, BLEN, 0) > 0) {
-      printf("Recevied from (%s): %s\n", clientAddrString, buf);
+      printf("Recevied from (%s): %s\n", clientThreadInfo.name, buf);
+      if (startsWith("NICK", buf)) {
+        strncpy(clientThreadInfo.name, (buf + 4 * sizeof(char)), USER_NAME_MAX);
+      }
+      
       char formattedResponse[BLEN];
-      snprintf(formattedResponse, BLEN, "%s: %s", clientAddrString, buf);
+      snprintf(formattedResponse, BLEN, "%s: %s", clientThreadInfo.name, buf);
       write(sendToAllPipeFds[1], formattedResponse, strlen(formattedResponse));
       memset(buf, 0, BLEN);
     }
@@ -108,4 +114,11 @@ void* dispatchMessageToAllSocks(void* args) {
       }
     }
   }
+}
+
+// From https://stackoverflow.com/questions/4770985/how-to-check-if-a-string-starts-with-another-string-in-c
+bool startsWith(const char *pre, const char *str) {
+  size_t lenpre = strlen(pre),
+  lenstr = strlen(str);
+  return lenstr < lenpre ? false : strncmp(pre, str, lenpre) == 0;
 }
